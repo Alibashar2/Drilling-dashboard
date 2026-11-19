@@ -87,6 +87,7 @@ function columnFacts(wb: SWorkbook) {
 const xx1 = load('XX-1.xlsx'), xx2 = load('XX-2.xlsx');
 
 describe.skipIf(!xx1)('real report XX-1 (user file, read-only)', () => {
+  if (!xx1) return;   // the body is still collected when skipped; the report is not on this machine (e.g. CI)
   const ex = extractWorkbook(xx1!, OPTS);
   const facts = columnFacts(xx1!);
   const sheet = xx1!.sheets[0].name;
@@ -190,6 +191,7 @@ describe.skipIf(!xx1)('real report XX-1 (user file, read-only)', () => {
 });
 
 describe.skipIf(!xx2)('real report XX-2 (generalisation: nothing was tuned on its numbers)', () => {
+  if (!xx2) return;
   const ex = extractWorkbook(xx2!, OPTS);
   const facts = columnFacts(xx2!);
   it('reads it the same way and NPT matches its own classification', () => {
@@ -208,6 +210,7 @@ describe.skipIf(!xx2)('real report XX-2 (generalisation: nothing was tuned on it
 });
 
 describe.skipIf(!xx1 || !xx2)('Well Comparison point analysis on XX-1 against XX-2', () => {
+  if (!xx1 || !xx2) return;
   const recs = (wb: SWorkbook, id: string) => prepareRecords(extractWorkbook(wb, OPTS).records.map(r => ({ ...r, well_id: id })));
   const r1 = recs(xx1!, 'X1'), r2 = recs(xx2!, 'X2');
   const s1 = buildWellSeries({ id: 'X1', name: 'XX-1' }, '#0ea5c4', r1, 'depth'), s2 = buildWellSeries({ id: 'X2', name: 'XX-2' }, '#d97706', r2, 'depth');
