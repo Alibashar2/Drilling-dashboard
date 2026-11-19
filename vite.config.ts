@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
+  // GitHub Pages serves the site under /<repository>/; the deploy workflow sets BASE_PATH. Local dev and other hosts use '/'.
+  base: process.env.BASE_PATH || '/',
   plugins: [react(), tailwindcss()],
   // PGlite ships its own WASM bundle and must not be pre-bundled by esbuild.
   optimizeDeps: { exclude: ['@electric-sql/pglite'] },
