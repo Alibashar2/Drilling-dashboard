@@ -8,7 +8,8 @@ import { depthBasis, paramSnapshot, progressCurve, runPerf, segments, type Param
 import { colorRank, matchProblems, matchTypes, type CurrentContext, type Match } from '../lib/matching';
 import { interpAtMd, type TrajPoint } from '../lib/survey';
 import { actName, type DrillingProblem, type HistoricalAlert, type Rec } from '../lib/types';
-import { fmt, fmtDateTime, isoDay } from '../lib/units';
+import { fmt, fmtDateTime, fmtTime, localDay } from '../lib/units';
+import { dayRange, utcToWall, wallToUtc, zoneLabel } from '../lib/time';
 import { axis, chartBase, EChart } from '../components/EChart';
 import RigState from '../components/RigState';
 import Schematic from '../components/Schematic';
@@ -117,10 +118,12 @@ export default function Simulation() {
 
   const days = useMemo(() => {
     const out: { day: string; first: number }[] = [];
-    recs.forEach((r, i) => { const d = isoDay(r.t); if (!out.length || out[out.length - 1].day !== d) out.push({ day: d, first: i }); });
+    // drilling dates are the rig's local calendar days (Asia/Baghdad); records stay in their stored UTC order
+    recs.forEach((r, i) => { const d = localDay(r.t); if (!out.length || out[out.length - 1].day !== d) out.push({ day: d, first: i }); });
     return out;
   }, [recs]);
-  const dayNo = cur ? days.findIndex(d => d.day === isoDay(cur.t)) : -1;
+  const curDay = cur ? localDay(cur.t) : '';
+  const dayNo = cur ? days.findIndex(d => d.day === curDay) : -1;
   const segs = useMemo(() => segments(recs), [recs]);
   const traj: TrajPoint[] = useMemo(() => (wd.data?.survey ?? []).map(s => ({ md: s.md_ft, inc: s.inclination_deg, azi: s.azimuth_deg, tvd: s.tvd_ft ?? s.md_ft, north: s.north_ft ?? 0, east: s.east_ft ?? 0, hd: Math.hypot(s.north_ft ?? 0, s.east_ft ?? 0) })), [wd.data]);
   const basis = useMemo(() => depthBasis(recs), [recs]);
@@ -205,21 +208,23 @@ export default function Simulation() {
     const tracks = [...new Set(on.map(x => x.track))].sort();
     const n = Math.max(tracks.length, 1), left0 = 9, wEach = (100 - left0 - 1) / n;
     const conv = (x: (typeof TRACES)[number], v: number | null) => (v == null ? null : 'kind' in x ? Math.round(U.d(v)! * 10) / 10 : v);
+    // the time axis runs on the Baghdad clock so its ticks fall on whole local hours; each point keeps its UTC instant for the tooltip
+    const clock = (ms: number) => utcToWall(ms);
     return chartBase({
       legend: { show: false },
       tooltip: {
         trigger: 'axis', backgroundColor: '#0b1826', borderColor: '#22364b', textStyle: { color: '#dde8f3', fontSize: 12 }, confine: true,
-        formatter: (ps: { marker: string; seriesName: string; value: [number | null, number] }[]) => !ps.length ? '' :
-          `<b>${fmtDateTime(ps[0].value[1])}</b><br/>` + ps.map(p => `${p.marker}${p.seriesName}: <b>${p.value[0] == null ? '—' : p.value[0].toLocaleString('en-US')}</b>`).join('<br/>'),
+        formatter: (ps: { marker: string; seriesName: string; value: [number | null, number, number] }[]) => !ps.length ? '' :
+          `<b>${fmtDateTime(ps[0].value[2])}</b> <span style="color:#8499ae">${t('Baghdad')}</span><br/>` + ps.map(p => `${p.marker}${p.seriesName}: <b>${p.value[0] == null ? '—' : p.value[0].toLocaleString('en-US')}</b>`).join('<br/>'),
       },
       axisPointer: { link: [{ yAxisIndex: 'all' }], lineStyle: { color: '#5b7590' } },
       grid: tracks.map((_, i) => ({ left: `${left0 + i * wEach}%`, width: `${wEach - 1.2}%`, top: 6, bottom: 8, show: true, borderColor: '#1b2c3f', backgroundColor: 'rgba(5,11,20,0.5)' })),
-      yAxis: tracks.map((_, i) => ({ gridIndex: i, type: 'time', inverse: true, min: t0, max: t1, ...axis({ axisLabel: { show: i === 0, color: '#8499ae', fontSize: 10, formatter: (v: number) => new Date(v).toISOString().slice(11, 16) }, splitLine: { lineStyle: { color: '#101d2c' } } }) })),
+      yAxis: tracks.map((_, i) => ({ gridIndex: i, type: 'time', inverse: true, min: clock(t0), max: clock(t1), ...axis({ axisLabel: { show: i === 0, color: '#8499ae', fontSize: 10, formatter: (v: number) => fmtTime(wallToUtc(v)) }, splitLine: { lineStyle: { color: '#101d2c' } } }) })),
       xAxis: on.map(x => ({ gridIndex: tracks.indexOf(x.track), type: 'value', scale: true, show: false, inverse: 'kind' in x && x.kind === 'depth' ? false : false })),
       series: on.map((x, i) => ({
         type: 'line', name: `${t(x.label)} (${'kind' in x ? (x.kind === 'depth' ? U.dl : U.rl) : x.unit})`, xAxisIndex: i, yAxisIndex: tracks.indexOf(x.track), showSymbol: false,
         lineStyle: { width: 1.3, color: x.color }, itemStyle: { color: x.color }, connectNulls: false,
-        data: win.map(r => [conv(x, r[x.key as keyof Rec] as number | null), r.t]),
+        data: win.map(r => [conv(x, r[x.key as keyof Rec] as number | null), clock(r.t), r.t]),
       })),
     });
   }, [recs, idx, cur, windowH, selected, U, t]);
@@ -258,7 +263,7 @@ export default function Simulation() {
   const go = (i: number) => setIdx(Math.max(0, Math.min(recs.length - 1, i)));
   const stepDay = (d: number) => { const k = Math.max(0, Math.min(days.length - 1, dayNo + d)); go(days[k].first); };
   const jumpDepth = () => { const v = Number(goDepth); if (!goDepth.trim() || isNaN(v)) return; const ft = U.toFt(v); const k = recs.findIndex(r => r.hole >= ft); go(k < 0 ? recs.length - 1 : k); };
-  const rig = rigRange === 'all' ? [recs[0].t, recs[recs.length - 1].t + 1] : rigRange === 'day' ? [Date.parse(isoDay(cur.t) + 'T00:00:00Z'), Date.parse(isoDay(cur.t) + 'T00:00:00Z') + 86400000] : [cur.t - 86400000, cur.t];
+  const rig = rigRange === 'all' ? [recs[0].t, recs[recs.length - 1].t + 1] : rigRange === 'day' ? dayRange(curDay) : [cur.t - 86400000, cur.t];
   const target = well.target_depth_ft;
   const tvd = ctx.tvd;
   const events = core.problems.filter(p => p.well_id === well.id && (p.occurred_at ? new Date(p.occurred_at).getTime() <= cur.t : p.md_top_ft <= cur.hole));
@@ -285,7 +290,7 @@ export default function Simulation() {
           <Select aria-label={t('Well')} className="h-8 w-52" value={well.id} onChange={e => { setOffsets(null); setParams({ well: e.target.value }); }}>
             {withData.map(s => <option key={s.well.id} value={s.well.id}>{s.well.name}</option>)}
           </Select>
-          <Select aria-label={t('Drilling date')} className="h-8 w-36" value={isoDay(cur.t)} onChange={e => go(days.find(d => d.day === e.target.value)?.first ?? 0)}>
+          <Select aria-label={t('Drilling date')} className="h-8 w-36" value={curDay} onChange={e => go(days.find(d => d.day === e.target.value)?.first ?? 0)}>
             {days.map((d, i) => <option key={d.day} value={d.day}>{d.day} · {t('Day')} {i + 1}</option>)}
           </Select>
           <div className="flex items-center gap-1" dir="ltr">
@@ -306,7 +311,8 @@ export default function Simulation() {
           {well.is_demo && <Badge color="magenta">{t('SAMPLE DATA')}</Badge>}
           {cur.data_quality === 'interpolated' && <span title={`${t('Source location')}: ${cur.source_ref ?? ''}`}><Badge color="yellow">{t('Interpolated from daily report')}</Badge></span>}
           <Badge color={playing ? 'green' : 'gray'}>{playing ? t('Replaying') : t('Paused')}</Badge>
-          <span className="num text-xs text-mute" dir="ltr">{fmtDateTime(cur.t)} UTC · {t('Day')} {dayNo + 1}/{days.length}</span>
+          <span className="text-xs text-mute">{t('Local Time (Baghdad)')}: <b className="num text-ink" dir="ltr">{fmtDateTime(cur.t)}</b> · {t('Day')} {dayNo + 1}/{days.length}
+            <span className="num ms-1.5 rounded border border-line px-1 py-px text-[10px]" dir="ltr" title={t('All times on this page are Baghdad local time, converted from the UTC timestamps stored in the database.')}>{zoneLabel(cur.t)}</span></span>
         </div>
         <input type="range" dir="ltr" aria-label={t('Timeline')} className="mt-2 w-full" min={0} max={recs.length - 1} value={idx} onChange={e => { setPlaying(false); go(Number(e.target.value)); }} />
       </div>
@@ -404,7 +410,7 @@ export default function Simulation() {
           <Card title={t('Operations Timeline')} right={<Select aria-label={t('Period')} className="h-7 w-36 text-xs" value={opsRange} onChange={e => setOpsRange(e.target.value as typeof opsRange)}><option value="24h">{t('Last 24 Hours')}</option><option value="day">{t('Selected day')}</option><option value="all">{t('Entire well')}</option></Select>}>
             {(() => {
               const w = opsRange === 'all' ? [Date.parse(eq.operations[0]?.start_at ?? '') || recs[0].t, Date.parse(eq.operations[eq.operations.length - 1]?.end_at ?? '') || recs[recs.length - 1].t]
-                : opsRange === 'day' ? [Date.parse(isoDay(cur.t) + 'T00:00:00Z'), Date.parse(isoDay(cur.t) + 'T00:00:00Z') + 86400000] : [cur.t - 86400000 + 3600000 * 2, cur.t + 3600000 * 2];
+                : opsRange === 'day' ? dayRange(curDay) :[cur.t - 86400000 + 3600000 * 2, cur.t + 3600000 * 2];
               return <>
                 <OperationsTimeline ops={eq.operations} t0={w[0]} t1={w[1]} cursor={cur.t} onPick={o => { setPlaying(false); const k = recs.findIndex(r => r.t >= Date.parse(o.start_at)); go(k < 0 ? recs.length - 1 : k); }} />
                 {eq.operations.length > 0 && <div className="mt-1.5"><OP_COLOR_LEGEND cats={OP_CATEGORIES.filter(c => eq.operations.some(o => o.category === c))} /></div>}

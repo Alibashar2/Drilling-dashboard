@@ -8,7 +8,9 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { extractWorkbook, type Extraction } from './engine';
 import { readSmart, type SWorkbook } from './workbook';
-import { prepareRecords } from '../../lib/kpi';
+import { dailyReports, prepareRecords } from '../../lib/kpi';
+import { extractionToUtc } from '../reportTime';
+import { fmtDateTime, localDay, offsetMs } from '../../lib/time';
 import { allChanges, analysisWindow, buildWellSeries, entries, explain, matchWell, recordedEvents, tolerance } from '../../lib/pointAnalysis';
 
 const DIR = process.env.REPORT_DIR ?? resolve(process.cwd(), '..', 'project', 'data');
@@ -241,5 +243,33 @@ describe.skipIf(!xx1 || !xx2)('Well Comparison point analysis on XX-1 against XX
       expect(ex.summary.length).toBeGreaterThan(20);
       if (ex.direction === 'increase' || ex.direction === 'decrease') expect(ex.findings.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe.skipIf(!xx1)('Baghdad local time on the real XX-1 report', () => {
+  if (!xx1) return;
+  const ex = extractWorkbook(xx1!, OPTS), u = extractionToUtc(ex);
+  const clock = (iso: string) => iso.slice(0, 16).replace('T', ' ');   // the report's own clock time, as read
+  it('stores UTC and shows every record, operation and problem at the time the report wrote', () => {
+    expect(u.records.length).toBe(ex.records.length);
+    u.records.forEach((r, i) => {
+      expect(fmtDateTime(r.ts).slice(0, 16)).toBe(clock(ex.records[i].ts));
+      expect(Date.parse(ex.records[i].ts) - Date.parse(r.ts)).toBe(offsetMs(Date.parse(r.ts)));
+    });
+    u.operations.forEach((o, i) => { expect(fmtDateTime(o.start).slice(0, 16)).toBe(clock(ex.operations[i].start)); expect(fmtDateTime(o.end).slice(0, 16)).toBe(clock(ex.operations[i].end)); });
+    u.problems.forEach((p, i) => { if (p.ts) expect(fmtDateTime(p.ts).slice(0, 16)).toBe(clock(ex.problems[i].ts!)); });
+  });
+  it('keeps entries between 00:00 and 03:00 Baghdad on their report date, though their UTC date is the day before', () => {
+    const early = u.records.filter((_, i) => ex.records[i].ts.slice(11, 13) < '03');
+    expect(early.length).toBeGreaterThan(0);
+    for (const r of early) {
+      const i = u.records.indexOf(r);
+      expect(localDay(r.ts)).toBe(ex.records[i].ts.slice(0, 10));
+      expect(r.ts.slice(0, 10) < ex.records[i].ts.slice(0, 10)).toBe(true);
+    }
+  });
+  it('builds daily reports on the report dates', () => {
+    const days = dailyReports({ id: 'xx1' }, prepareRecords(u.records.map(r => ({ ...r, well_id: 'xx1' }))));
+    expect(days.map(d => d.report_date)).toEqual([...new Set(ex.records.map(r => r.ts.slice(0, 10)))].sort());
   });
 });

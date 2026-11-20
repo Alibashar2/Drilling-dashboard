@@ -4,10 +4,11 @@ import { Download, Upload } from 'lucide-react';
 import * as repo from '../db/repo';
 import { useAuth, usePrefs } from '../lib/context';
 import { WELL_TYPES, type WellStatus } from '../lib/types';
-import { fmt, fmtDateTime, mToFt, UNITS } from '../lib/units';
+import { fmt, fmtDateTime, localDay, mToFt, UNITS } from '../lib/units';
 import { CONNECTORS, readWorkbookFile, type LoadedWorkbook } from '../import/connectors';
 import { autoConfig, DRILLING_FIELDS, extractProblems, processDrillingSheet, processSurveySheet, remap, SURVEY_FIELDS, type ImportOptions, type SheetConfig, type SheetRole } from '../import/parse';
 import { extractWorkbook, type Extraction } from '../import/smart/engine';
+import { extractionToUtc, recordsToUtc } from '../import/reportTime';
 import type { Correction } from '../import/smart/incell';
 import { paramSnapshot } from '../lib/kpi';
 import { downloadSampleImportFile } from '../demo/load';
@@ -45,13 +46,16 @@ export default function AddWell() {
     return wb.sheets.map((s, i) => {
       const c = cfgs[i];
       if (!c || c.role === 'ignore') return null;
-      return c.role === 'drilling' ? { kind: 'drilling' as const, ...processDrillingSheet(s, c, { ...opts, declaredDepthUnit: w.unit }) } : { kind: 'survey' as const, ...processSurveySheet(s, c) };
+      if (c.role !== 'drilling') return { kind: 'survey' as const, ...processSurveySheet(s, c) };
+      const res = processDrillingSheet(s, c, { ...opts, declaredDepthUnit: w.unit });
+      return { kind: 'drilling' as const, ...res, records: recordsToUtc(res.records) };   // report clock (Asia/Baghdad) -> UTC
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wb, cfgs, opts, w.unit, rev]);
 
   const smartOpts = (o: Record<string, string> = overrides, a = acceptNpt, d = fallbackDate, c = corrections) => ({ depthUnit: w.unit, dateOrder: opts.dateOrder, learned: known.data?.learned ?? {}, overrides: o, acceptNpt: a, fallbackDate: d || null, knownFormations: known.data?.formations ?? [], corrections: c });
-  const smart: Extraction | null = useMemo(() => (wb ? extractWorkbook(wb.smart, smartOpts()) : null),
+  // the report's clock times (rig local time, Asia/Baghdad) become UTC instants here, once, before preview and saving
+  const smart: Extraction | null = useMemo(() => (wb ? extractionToUtc(extractWorkbook(wb.smart, smartOpts())) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [wb, w.unit, opts.dateOrder, overrides, acceptNpt, fallbackDate, known.data, corrections]);
   const auto = mode === 'auto' && !!smart;
@@ -97,7 +101,7 @@ export default function AddWell() {
     const well = await repo.createWell({
       well_code: w.well_code, name: w.name.trim(), field: w.field || null, location: w.location || null, well_type: w.well_type, status: w.status,
       spud_date: w.spud_date || null, planned_completion_date: w.planned_completion_date || null,
-      completion_date: w.status === 'completed' && allRecords.length ? allRecords[allRecords.length - 1].ts.slice(0, 10) : null,
+      completion_date: w.status === 'completed' && allRecords.length ? localDay(allRecords[allRecords.length - 1].ts) : null,
       target_depth_ft: target == null ? null : w.unit === 'm' ? mToFt(target) : target, hole_size_in: num(w.hole_size),
       source_depth_unit: w.unit, is_demo: false, notes: w.notes || null,
     });

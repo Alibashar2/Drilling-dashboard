@@ -8,6 +8,7 @@ import { useAuth, usePrefs } from '../lib/context';
 import { OP_CATEGORIES, OP_TYPE, type OpCategory, CATEGORY_COLOR } from '../lib/operations';
 import type { DrillingTool, Operation } from '../lib/types';
 import { fmt, fmtDateTime } from '../lib/units';
+import { fromLocalInput, toLocalInput, zoneLabel } from '../lib/time';
 import { CasingSummary, CementSummary, CorrectOperation, inch, SectionTable, ToolTable } from './SimPanels';
 import { Badge, Button, Card, Field, Input, Modal, Notice, Select, Spinner, useAction, useAsync } from './ui';
 
@@ -133,8 +134,8 @@ function ToolForm({ initial, wellId, runs, casings, busy, onSave, onCancel }: {
         <Field label={t('Manufacturer')}><Input {...s('manufacturer')} /></Field>
         <Field label={t('BHA run')}><Select value={f.bha_run_id ?? ''} onChange={e => setF(p => ({ ...p, bha_run_id: e.target.value || null, run_no: runs.find(r => r.id === e.target.value)?.run_no ?? null }))}><option value="">—</option>{runs.map(r => <option key={r.id} value={r.id}>{t('Run')} {r.run_no} · {inch(r.hole_size_in)}</option>)}</Select></Field>
         <Field label={t('Casing string')}><Select value={f.casing_string_id ?? ''} onChange={e => setF(p => ({ ...p, casing_string_id: e.target.value || null }))}><option value="">—</option>{casings.map(c => <option key={c.id} value={c.id}>{inch(c.od_in)} {t(c.kind)}</option>)}</Select></Field>
-        <Field label={t('Installation date')}><Input type="datetime-local" value={f.installed_at ? String(f.installed_at).slice(0, 16) : ''} onChange={e => setF(p => ({ ...p, installed_at: e.target.value ? e.target.value + ':00Z' : null }))} /></Field>
-        <Field label={t('Retrieval date')}><Input type="datetime-local" value={f.retrieved_at ? String(f.retrieved_at).slice(0, 16) : ''} onChange={e => setF(p => ({ ...p, retrieved_at: e.target.value ? e.target.value + ':00Z' : null }))} /></Field>
+        <Field label={t('Installation date')}><Input type="datetime-local" title={zoneLabel()} value={toLocalInput(f.installed_at)} onChange={e => setF(p => ({ ...p, installed_at: fromLocalInput(e.target.value) }))} /></Field>
+        <Field label={t('Retrieval date')}><Input type="datetime-local" title={zoneLabel()} value={toLocalInput(f.retrieved_at)} onChange={e => setF(p => ({ ...p, retrieved_at: fromLocalInput(e.target.value) }))} /></Field>
       </div>
       <p className="text-xs text-mute">{t('Leave a value empty when it is not known; it is shown as "Not available". Your entry is marked as entered or corrected by an engineer.')}</p>
       <div className="flex justify-end gap-2"><Button onClick={onCancel}>{t('Cancel')}</Button>

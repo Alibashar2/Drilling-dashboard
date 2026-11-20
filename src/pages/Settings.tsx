@@ -5,6 +5,7 @@ import { DB_MODE, SUPABASE_URL } from '../db/adapter';
 import { useAuth, usePrefs } from '../lib/context';
 import { DEFAULT_ALERT_CONFIG, type AlertConfig, type SimilarityWeights } from '../lib/matching';
 import type { Role } from '../lib/types';
+import { localDay } from '../lib/time';
 import { CONNECTORS } from '../import/connectors';
 import { loadDemo, removeDemo } from '../demo/load';
 import { Badge, Button, Card, DataTable, Field, Input, Notice, PageHeader, Select, Spinner, Tabs, useAction, useAsync } from '../components/ui';
@@ -161,7 +162,7 @@ export default function SettingsPage() {
             <p className="text-[13px] text-mute">{t('Download every well, record, problem, alert and setting as one JSON file.')}</p>
             <Button className="mt-3" disabled={act.busy} onClick={() => act.run(async () => {
               const blob = new Blob([JSON.stringify(await repo.exportBackup())], { type: 'application/json' });
-              const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `drilling-dashboard-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click(); URL.revokeObjectURL(a.href);
+              const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `drilling-dashboard-backup-${localDay(Date.now())}.json`; a.click(); URL.revokeObjectURL(a.href);
             })}>{t('Download backup (JSON)')}</Button>
             <p className="mt-3 text-xs text-mute">{t('Individual wells are deleted from their own page (Administrator only). Wells are never overwritten: each Well ID can be used once.')}</p>
           </Card>

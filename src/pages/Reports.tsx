@@ -6,7 +6,7 @@ import { loadCore } from '../lib/data';
 import type { EstimateResult } from '../lib/estimate';
 import { buildDDR, buildEstimateReport, buildFormationRisk, buildNpt, buildOffset, buildPerformance, buildProblems, buildRop, type ReportDoc } from '../lib/reports';
 import type { Rec } from '../lib/types';
-import { isoDay } from '../lib/units';
+import { localDay } from '../lib/units';
 import ReportView from '../components/ReportView';
 import { Card, Chips, cx, Empty, Field, Notice, PageHeader, Select, Spinner, useAsync } from '../components/ui';
 
@@ -47,7 +47,7 @@ export default function Reports() {
       case 'ddr': {
         const well = core.well.get(wellId), d = core.reports.find(r => r.well_id === wellId && String(r.report_date).slice(0, 10) === date);
         if (!well || !d) return null;
-        return buildDDR(well, d, (await repo.getRecords(wellId)).filter(r => isoDay(r.t) === date), core, actions, U);
+        return buildDDR(well, d, (await repo.getRecords(wellId)).filter(r => localDay(r.t) === date), core, actions, U);
       }
       case 'performance': return buildPerformance(core, ids, U);
       case 'npt': return buildNpt(core, ids, actions, U);

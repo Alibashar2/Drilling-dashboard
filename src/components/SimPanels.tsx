@@ -6,7 +6,7 @@ import { usePrefs } from '../lib/context';
 import { CATEGORY_COLOR, OP_CATEGORIES, OP_TYPE, OP_TYPES, type OpCategory } from '../lib/operations';
 import type { CurrentAlert, Equip, ToolView } from '../lib/simContext';
 import type { AlertComment, BhaRun, CorrectiveAction, DrillingTool, HoleSection, Operation, SimEvent } from '../lib/types';
-import { fmt, fmtDateTime, type Units } from '../lib/units';
+import { fmt, fmtDateTime, localDay, type Units } from '../lib/units';
 import { Badge, Button, cx, Select } from './ui';
 
 /** 12.25 -> 12-1/4", 22.875 -> 22-7/8", 4.0625 -> 4-1/16" (exact fractions only; otherwise the decimal) */
@@ -177,7 +177,7 @@ export function HoleSectionCard({ s, total, U }: { s: HoleSection | null; total:
       {row(t('Casing shoe'), s.shoe_md_ft != null ? U.fdu(s.shoe_md_ft) : null)}
       {row(t('Bit type'), s.bit_types.length ? s.bit_types.join(', ') : null)}
       {row(t('BHA runs'), s.bha_runs.length ? s.bha_runs.join(', ') : null)}
-      {row(t('Drilling'), s.drill_start ? `${String(s.drill_start).slice(0, 10)} → ${String(s.drill_end).slice(0, 10)}` : null)}
+      {row(t('Drilling'), s.drill_start ? `${localDay(s.drill_start)} → ${localDay(s.drill_end) || '…'}` : null)}
       {row(t('Section duration'), s.duration_h != null ? `${fmt(s.duration_h / 24, 1)} d` : null)}
       {row(t('Average ROP'), s.avg_rop_fph != null ? `${U.fr(s.avg_rop_fph)} ${U.rl}` : null)}
       {row('NPT', s.npt_hours != null ? `${fmt(s.npt_hours, 2)} h` : null)}
@@ -297,7 +297,7 @@ export function SectionTable({ sections, U }: { sections: HoleSection[]; U: Unit
           <td className={td}>{s.section_no}</td><td className={td}>{inch(s.hole_size_in) ?? <NA t={t} />}</td><td className={td}>{s.bit_sizes_in.length ? s.bit_sizes_in.map(inch).join(', ') : <NA t={t} />}</td>
           <td className={td}>{s.casing_od_in != null ? `${inch(s.casing_od_in)} ${t(s.casing_kind ?? '')}` : <NA t={t} />}</td><td className={td}>{s.shoe_md_ft != null ? U.fdu(s.shoe_md_ft) : <NA t={t} />}</td>
           <td className={td}>{s.top_md_ft != null ? `${U.fd(s.top_md_ft)} – ${U.fdu(s.bottom_md_ft)}` : <NA t={t} />}</td><td className={td}>{s.bit_types.join(', ') || <NA t={t} />}</td><td className={td}>{s.bha_runs.join(', ') || '—'}</td><td className={td}>{s.tools_count}</td>
-          <td className={td}>{s.drill_start ? `${String(s.drill_start).slice(0, 10)} → ${String(s.drill_end).slice(0, 10)}` : <NA t={t} />}</td><td className={td}>{s.duration_h != null ? `${fmt(s.duration_h / 24, 1)} d` : '—'}</td>
+          <td className={td}>{s.drill_start ? `${localDay(s.drill_start)} → ${localDay(s.drill_end) || '…'}` : <NA t={t} />}</td><td className={td}>{s.duration_h != null ? `${fmt(s.duration_h / 24, 1)} d` : '—'}</td>
           <td className={td}>{s.avg_rop_fph != null ? `${U.fr(s.avg_rop_fph)} ${U.rl}` : <NA t={t} />}</td><td className={td}>{fmt(s.npt_hours, 2)} h</td><td className={cx(td, 'font-sans')}>{s.formations.join(' · ')}</td>
         </tr>))}</tbody>
     </table></div>

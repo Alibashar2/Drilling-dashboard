@@ -111,7 +111,7 @@ without them every browser keeps its own private local database.
   N·m, kN·m, kPa, bar, MPa, L/min, sg, kg/m³ and others; display switches between ft and m.
 - **Depths:** MD, TVD, bit depth and hole depth are separate columns. Hole depth falls back to MD (then bit
   depth) only when a file has no hole-depth column, and the simulation says so.
-- **Time:** timestamps are treated as UTC "rig time" exactly as written in the file; no timezone shifting.
+- **Time:** drilling reports are written in rig local time, **Asia/Baghdad**. On import each report clock time is converted once to a real UTC instant (`src/import/reportTime.ts`), the database stores UTC, and every screen, chart, tooltip and export shows Baghdad local time (`src/lib/time.ts`, the single place that names the time zone; conversion uses the IANA zone rules, never a fixed +3 h). Report days are Baghdad calendar days: filtering by a date uses that day's UTC start and end. Databases written by earlier versions, which stored the report clock as if it were UTC, are converted once on first start (`supabase/migrations/0003_report_times_utc.sql`).
 - **NPT:** taken from the report's own classification (NPT column, Productive / Non Productive column, NPT table);
   otherwise listed as "possible NPT" for the engineer to accept. Never summed twice.
 - **Appending data** to an existing well after it is saved is not implemented; a Well ID can be used once.

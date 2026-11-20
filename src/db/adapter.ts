@@ -4,6 +4,7 @@
 // Every operation either succeeds against the real database or throws; nothing is simulated.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import schemaSql from '../../supabase/migrations/0001_schema.sql?raw';
+import reportTimesUtcSql from '../../supabase/migrations/0003_report_times_utc.sql?raw';
 
 type Scalar = string | number | boolean;
 export interface SelectOpts {
@@ -51,6 +52,7 @@ class LocalAdapter implements DbAdapter {
     await this.db.waitReady;
     await this.db.exec(schemaSql);
     await this.db.exec(LOCAL_ONLY_SQL);
+    await this.db.exec(reportTimesUtcSql);   // once per database: report clock times stored before -> UTC
   }
   private norm<T>(rows: any[]): T[] {
     for (const r of rows) for (const k in r) {

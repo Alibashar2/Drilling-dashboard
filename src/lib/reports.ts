@@ -4,7 +4,8 @@ import { counted } from './data';
 import type { EstimateResult } from './estimate';
 import { breakdown, groupBy, segments, sum, type WellSummary } from './kpi';
 import { actName, STATUS_LABEL, type CorrectiveAction, type DailyReport, type DrillingProblem, type FormationInterval, type Rec, type Well, type WellSection } from './types';
-import { fmt, fmtDateTime, fmtTime, type Units } from './units';
+import { fmt, fmtDateTime, fmtTime, localDay, type Units } from './units';
+import { zoneLabel } from './time';
 
 type Cell = string | number | null;
 export interface ReportTable { heading: string; columns: string[]; rows: Cell[][]; note?: string }
@@ -12,7 +13,7 @@ export interface ReportChart { title: string; categories: string[]; series: { na
 export interface ReportDoc { title: string; subtitle?: string; meta: [string, string][]; tables: ReportTable[]; notes?: string[]; chart?: ReportChart }
 
 const r1 = (v: number | null | undefined, d = 1) => (v == null || !isFinite(v) ? null : Math.round(v * 10 ** d) / 10 ** d);
-const stamp = () => `Generated ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+const stamp = () => `Generated ${fmtDateTime(Date.now())} · times in local time (${zoneLabel()})`;
 const sampleNote = (wells: Well[]) => (wells.some(w => w.is_demo) ? ['Includes SAMPLE (synthetic) wells - not real drilling data.'] : []);
 
 export function summaryRow(s: WellSummary, U: Units): Cell[] {
@@ -62,7 +63,7 @@ export function buildWellReport(a: { well: Well; summary: WellSummary; core: Cor
 
 export function buildDDR(well: Well, d: DailyReport, dayRecs: Rec[], core: Core, actions: CorrectiveAction[], U: Units): ReportDoc {
   const date = String(d.report_date).slice(0, 10);
-  const probs = core.problems.filter(p => p.well_id === well.id && String(p.occurred_at ?? '').slice(0, 10) === date);
+  const probs = core.problems.filter(p => p.well_id === well.id && localDay(p.occurred_at) === date);
   const ah = Object.entries(d.activity_hours ?? {}).sort((a, b) => b[1] - a[1]);
   return {
     title: `Daily Drilling Report - ${well.name}`, subtitle: `${date} · Day ${d.day_number}`,

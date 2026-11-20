@@ -4,6 +4,7 @@ import type { DrillingRecord } from '../lib/types';
 import { normalizeActivity } from '../lib/types';
 import { detectUnit, toCanonical, UNITS, type Dim } from '../lib/units';
 import { median } from '../lib/kpi';
+import { utcToWall } from '../lib/time';
 
 export interface RawSheet { name: string; rows: unknown[][] }
 export interface RawWorkbook { fileName: string; kind: 'excel' | 'csv'; sheets: RawSheet[] }
@@ -114,7 +115,11 @@ export function parseNum(v: unknown): number | null | typeof NaN {
 }
 
 const EXCEL_EPOCH = 25569;
-/** Parse a date / date-time cell to epoch ms (UTC wall-clock). Returns NaN when not understood. */
+/**
+ * Parse a date / date-time cell to epoch ms on the report clock: the UTC fields of the result are the clock time written in the
+ * report (rig local time). Converting that clock time to a real UTC instant happens once, after reading (import/reportTime.ts).
+ * Returns NaN when not understood.
+ */
 export function parseDate(v: unknown, order: 'DMY' | 'MDY'): number | null {
   if (isMissing(v)) return null;
   if (v instanceof Date) return v.getTime();
@@ -126,7 +131,15 @@ export function parseDate(v: unknown, order: 'DMY' | 'MDY'): number | null {
   const s = String(v).trim();
   if (/^\d+(\.\d+)?$/.test(s)) return parseDate(Number(s), order);
   let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?\s*(Z|[+-]\d{2}:?\d{2})?$/i);
-  if (m) return utc(+m[1], +m[2], +m[3], +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0));
+  if (m) {
+    const t = utc(+m[1], +m[2], +m[3], +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0));
+    // an explicit zone ("Z", "+03:00") names a real instant: express it on the report clock like every other time
+    if (m[7] && m[4] != null && !isNaN(t)) {
+      const z = m[7].toUpperCase() === 'Z' ? 0 : (m[7][0] === '-' ? -1 : 1) * (+m[7].slice(1, 3) * 60 + +m[7].slice(-2)) * 60000;
+      return utcToWall(t - z);
+    }
+    return t;
+  }
   m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?)?$/i);
   if (m) {
     const a = +m[1], b = +m[2], y = +m[3] < 100 ? 2000 + +m[3] : +m[3];

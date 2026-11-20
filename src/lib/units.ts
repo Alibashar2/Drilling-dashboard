@@ -86,12 +86,5 @@ export function makeUnits(depthUnit: DepthUnit): Units {
   };
 }
 
-/** Dates are handled as UTC wall-clock "rig time" throughout the app. */
-export const day10 = (s: string | null | undefined) => (s ? String(s).slice(0, 10) : '');
-export const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-export const fmtDateTime = (ms: number | string | null | undefined) => {
-  if (ms == null) return '—';
-  const d = new Date(ms);
-  return isNaN(d.getTime()) ? '—' : d.toISOString().slice(0, 16).replace('T', ' ');
-};
-export const fmtTime = (ms: number) => new Date(ms).toISOString().slice(11, 16);
+// Timestamps are stored in UTC and shown in the rig's local time zone (Asia/Baghdad): see ./time.ts.
+export { fmtDateTime, fmtTime, localDay } from './time';

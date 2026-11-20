@@ -3,6 +3,7 @@
 // "DEMO" in their Well ID and "(Sample)" in their name, and can be removed in Settings.
 import type { DrillingRecord, Severity, Well } from '../lib/types';
 import { interpAtMd, minCurvature, type TrajPoint } from '../lib/survey';
+import { fmtDateTime, localDay, wallToUtc } from '../lib/time';
 
 type Rec = Omit<DrillingRecord, 'well_id'>;
 interface DemoProblem {
@@ -92,7 +93,7 @@ export function generateDemoWell(spec: DemoSpec): DemoWell {
 
   const recs: Rec[] = [];
   const problems: DemoWell['problems'] = [];
-  let t = Date.parse(spec.spud + 'T06:00:00Z'), hole = 0, bit = 0;
+  let t = wallToUtc(Date.parse(spec.spud + 'T06:00:00Z')), hole = 0, bit = 0;   // 06:00 rig local time (Asia/Baghdad), stored as UTC
   const pending = [...spec.problems].sort((a, b) => a.md - b.md);
 
   const push = (code: string, sec: DemoSpec['sections'][number], p: Partial<Rec> = {}) => {
@@ -163,7 +164,7 @@ export function generateDemoWell(spec: DemoSpec): DemoWell {
   const prognosis = spec.stopAt
     ? spec.tops.map((tp, i) => ({ formation_name: tp.name, top_md_ft: tp.top, bottom_md_ft: spec.tops[i + 1]?.top ?? spec.target })).filter(p => p.bottom_md_ft > drilled).map(p => ({ ...p, top_md_ft: Math.max(p.top_md_ft, drilled) }))
     : [];
-  const lastDay = recs[recs.length - 1].ts.slice(0, 10);
+  const lastDay = localDay(recs[recs.length - 1].ts);
   return {
     well: {
       well_code: spec.code, name: spec.name, field: 'Sample Field', location: 'Sample Basin (synthetic)', well_type: spec.type,
@@ -191,7 +192,7 @@ export function sampleImportSheets(): { drilling: (string | number | null)[][]; 
     'Standpipe Pressure (kPa)', 'Diff Pressure (kPa)', 'Flow Rate (L/min)', 'Mud Density (sg)', 'Hookload (kN)', 'NPT (h)', 'Formation', 'Rig Activity', 'BHA No', 'Hole Size (in)', 'Problem',
   ]];
   for (const r of w.records) drilling.push([
-    r.ts.slice(0, 16).replace('T', ' '), m(r.md_ft), m(r.tvd_ft), m(r.bit_depth_ft), m(r.hole_depth_ft), m(r.rop_fph), Math.round(r.wob_klb! / 0.2248089 * 10) / 10, r.rpm,
+    fmtDateTime(r.ts), m(r.md_ft), m(r.tvd_ft), m(r.bit_depth_ft), m(r.hole_depth_ft), m(r.rop_fph), Math.round(r.wob_klb! / 0.2248089 * 10) / 10, r.rpm,
     Math.round(r.torque_ftlb! / 737.5621 * 100) / 100, Math.round(r.spp_psi! / 0.1450377), Math.round(r.diff_pressure_psi! / 0.1450377), Math.round(r.flow_gpm! / 0.2641721),
     Math.round(r.mud_weight_ppg! / 8.3454 * 1000) / 1000, Math.round(r.hook_load_klb! / 0.2248089), r.npt_hours, r.formation_name, names[r.activity_code!], r.bha_number, r.hole_size_in, r.problem_text,
   ]);

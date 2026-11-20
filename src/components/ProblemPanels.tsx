@@ -8,6 +8,7 @@ import { paramSnapshot } from '../lib/kpi';
 import { paramLabel, type CurrentContext, type Match } from '../lib/matching';
 import { ACTIVITIES, actName, SEVERITIES, STATUS_LABEL, type DrillingProblem, type HistoricalAlert, type ProblemCategory, type ProblemStatus, type Well } from '../lib/types';
 import { fmt, fmtDateTime } from '../lib/units';
+import { fromLocalInput, toLocalInput, zoneLabel } from '../lib/time';
 import { Badge, Button, Field, Input, Notice, Select, Spinner, Textarea, useAction, useAsync } from './ui';
 
 export const SEV_COLOR = { low: 'gray', medium: 'yellow', high: 'orange', critical: 'red' } as const;
@@ -229,7 +230,7 @@ export function ProblemForm({ wells, categories, initial, onSaved, onCancel }: F
         {info && <span className="text-xs text-emerald-300">{info}</span>}
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        <Field label={t('Date and time')}><Input type="datetime-local" value={f.occurred_at ? f.occurred_at.slice(0, 16) : ''} onChange={e => set({ occurred_at: e.target.value ? e.target.value + ':00Z' : null })} /></Field>
+        <Field label={t('Date and time')}><Input type="datetime-local" title={zoneLabel()} value={toLocalInput(f.occurred_at)} onChange={e => set({ occurred_at: fromLocalInput(e.target.value) })} /></Field>
         <Field label={t('Formation')}><Input value={f.formation_name ?? ''} onChange={e => set({ formation_name: e.target.value || null })} /></Field>
         <Field label={t('Drilling activity')}><Select value={f.activity_code ?? ''} onChange={e => set({ activity_code: e.target.value || null })}><option value="">—</option>{ACTIVITIES.map(a => <option key={a.code} value={a.code}>{t(a.name)}</option>)}</Select></Field>
         <Field label={`${t('Hole Size')} (in)`}><Input value={f.hole_size_in ?? ''} onChange={e => set({ hole_size_in: num(e.target.value) })} inputMode="decimal" /></Field>

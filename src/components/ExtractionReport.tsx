@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { usePrefs } from '../lib/context';
 import { ACT, actName } from '../lib/types';
-import { fmt } from '../lib/units';
+import { fmt, fmtDateTime, fmtTime } from '../lib/units';
 import { CONCEPT, CONCEPTS } from '../import/smart/dictionary';
 import type { Extraction, Ex, Status } from '../import/smart/engine';
 import { llmAvailable, llmClassifyLabels } from '../import/smart/llm';
@@ -141,7 +141,7 @@ export default function ExtractionReport({ ex, overrides, setOverrides, acceptNp
               {d.ops.length > 0 && <div className="mt-2 overflow-x-auto"><table className="w-full text-xs">
                 <thead><tr><th className={th}>{t('Time')}</th><th className={th}>h</th><th className={th}>{t('Rig state')}</th><th className={th}>{t('Extracted')}</th><th className={th}>{t('Original text')}</th><th className={th}>{t('Source')}</th></tr></thead>
                 <tbody>{d.ops.map(o => (
-                  <tr key={o.id}><td className={cx(td, 'num whitespace-nowrap')}>{o.start.slice(11, 16)}–{o.end.slice(11, 16)}</td><td className={cx(td, 'num')}>{fmt(o.hours, 1)}</td>
+                  <tr key={o.id}><td className={cx(td, 'num whitespace-nowrap')}>{fmtTime(o.start)}–{fmtTime(o.end)}</td><td className={cx(td, 'num')}>{fmt(o.hours, 1)}</td>
                     <td className={td}><span className="inline-flex items-center gap-1.5 whitespace-nowrap"><span className="h-2 w-2 rounded-sm" style={{ background: ACT[o.activity]?.color }} />{t(actName(o.activity))}</span></td>
                     <td className={td}><div className="flex flex-wrap gap-1">
                       {o.interval && <Badge color={STATUS_COLOR[o.interval.status]}>{U.fd(o.interval.from)}–{U.fd(o.interval.to)} {U.dl}</Badge>}
@@ -169,7 +169,7 @@ export default function ExtractionReport({ ex, overrides, setOverrides, acceptNp
           {ex.problems.map(p => (
             <div key={p.id} className="rounded-md border border-line p-3 text-[13px]">
               <div className="flex flex-wrap items-center gap-2"><b>{t(p.label)}</b><Badge color="yellow">{t('Suspected')}</Badge><Badge><Conf v={p.confidence} /></Badge>
-                <span className="num text-xs text-mute">{p.ts?.slice(0, 16).replace('T', ' ') ?? '—'} · MD {p.md == null ? t('not reported') : U.fdu(p.md)} · {p.formation ?? t('formation not reported')}</span></div>
+                <span className="num text-xs text-mute">{fmtDateTime(p.ts)} · MD {p.md == null ? t('not reported') : U.fdu(p.md)} · {p.formation ?? t('formation not reported')}</span></div>
               <p className="mt-1 text-xs"><span className="text-mute">NPT:</span> <b className="num">{fmt(p.nptHours, 1)} h</b> <span className="text-mute">— {p.nptBasis}</span></p>
               {p.actions.length > 0 && <p className="mt-1 text-xs"><span className="text-mute">{t('Corrective actions')}:</span> {p.actions.join(' · ')}</p>}
               <p className="mt-1 text-xs text-mute"><span className="text-ink/70">{t('Original text')}:</span> {p.sourceText}</p>
@@ -233,7 +233,7 @@ export default function ExtractionReport({ ex, overrides, setOverrides, acceptNp
               {ex.nptCandidates.map(c => (
                 <label key={c.id} className="flex items-start gap-2 border-b border-line/40 py-1.5 text-[13px]">
                   <input type="checkbox" className="mt-1" checked={acceptNpt.includes(c.id)} onChange={e => setAcceptNpt(e.target.checked ? [...acceptNpt, c.id] : acceptNpt.filter(x => x !== c.id))} />
-                  <span className="flex-1"><span className="num">{c.start.slice(0, 16).replace('T', ' ')} · {fmt(c.hours, 1)} h</span> — {c.text} <Src s={c.src} /></span>
+                  <span className="flex-1"><span className="num">{fmtDateTime(c.start)} · {fmt(c.hours, 1)} h</span> — {c.text} <Src s={c.src} /></span>
                 </label>))}
             </div>
           )}

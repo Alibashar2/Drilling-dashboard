@@ -6,7 +6,7 @@ import { loadCore } from '../lib/data';
 import { ESTIMATORS, offsetSectionStats, type EstimateResult, type OffsetSectionStat } from '../lib/estimate';
 import { buildEstimateReport } from '../lib/reports';
 import { WELL_TYPES } from '../lib/types';
-import { fmt } from '../lib/units';
+import { fmt, localDay } from '../lib/units';
 import { axis, chartBase, EChart, PALETTE } from '../components/EChart';
 import { ExportButtons } from '../components/ReportView';
 import { Badge, Button, Card, Chips, DataTable, Empty, Field, Input, Notice, PageHeader, Select, Spinner, Stat, useAction, useAsync } from '../components/ui';
@@ -22,7 +22,7 @@ export default function Estimate() {
   const [source, setSource] = useState('manual');
   const [rows, setRows] = useState<Row[]>([{ size: '17.5', top: '0', bottom: '' }, { size: '12.25', top: '', bottom: '' }, { size: '8.5', top: '', bottom: '' }]);
   const [wellType, setWellType] = useState(WELL_TYPES[0]);
-  const [spud, setSpud] = useState(new Date().toISOString().slice(0, 10));
+  const [spud, setSpud] = useState(localDay(Date.now()));
   const [weighting, setWeighting] = useState<'similarity' | 'equal'>('similarity');
   const [sel, setSel] = useState<string[] | null>(null);
   const save = useAction();

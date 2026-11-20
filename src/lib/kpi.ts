@@ -1,6 +1,6 @@
 // KPI engine: every figure shown in the app is derived here from stored drilling records.
 import type { DailyReport, DrillingProblem, DrillingRecord, Rec, Well } from './types';
-import { isoDay } from './units';
+import { localDay } from './time';
 
 export const isDrillingCode = (c: string | null) => c === 'ROT' || c === 'SLD';
 /** On-bottom drilling: by activity when recorded, otherwise by positive ROP. */
@@ -109,7 +109,8 @@ export function groupBy<T, K>(items: T[], key: (x: T) => K): Map<K, T[]> {
 const avgOn = (recs: Rec[], k: keyof DrillingRecord) => mean(nums(recs.filter(onBottom), k));
 
 export function dailyReports(well: Pick<Well, 'id'>, recs: Rec[]): DailyReport[] {
-  const days = [...groupBy(recs, r => isoDay(r.t)).entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  // a report day is the rig's local calendar day (Asia/Baghdad), from the stored UTC instants
+  const days = [...groupBy(recs, r => localDay(r.t)).entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
   return days.map(([date, rs], i) => {
     const b = breakdown(rs), ah = activityHours(rs);
     const forms = [...new Set(rs.map(r => r.formation_name).filter(Boolean))].join(', ');
